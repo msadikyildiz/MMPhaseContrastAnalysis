@@ -65,7 +65,7 @@ class MMPhaseContrast():
                 self.spread=np.array(self.spread)/self.im.shape[1]
                 self.spread=medfilt(self.spread,29)
                 self.xsum=medfilt(np.sum(im,1)/im.shape[1],29)
-                rough_est=np.where(self.spread>0.49)[0]
+                rough_est=np.where(self.spread>0.25)[0]
                 
                 ybot=max(rough_est)
                 ytop=max(np.where(self.xsum[:(ybot+min(rough_est))//2]<5)[0])
