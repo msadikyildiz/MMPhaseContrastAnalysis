@@ -1,5 +1,5 @@
 import matplotlib
-#matplotlib.use('TkAgg')
+matplotlib.use('Agg')
 import matplotlib.pyplot as pl
 import numpy as np
 
@@ -28,16 +28,18 @@ from multiprocessing import Pool
 
 class MMPhaseContrast():
 
-    def __init__(self,path=None,trench_width=17):
+    def __init__(self,path=None,trench_width=17,filename_fmt=None):
 
         self.files=[]
         self.path=path
         self.trench_width=trench_width
+        self.filename_fmt=filename_fmt
         self.ws_labels=None
         self.pos=None
         self.frame_start=0
         self.frame_limit=0
         self.is_stack=False
+
     
     def __enlistFiles(self,at='/',frame_start=None,frame_limit=None,pos=0,file_format='tif'):
 
@@ -52,10 +54,16 @@ class MMPhaseContrast():
 
         # decide if files stack or single
         self.is_stack=False
-        self.stack=skio.imread(self.files[pos])
+        self.stack=skio.imread(self.files[0])
         if len(self.stack.shape)==3:
             self.is_stack=True
             self.frame_limit=self.stack.shape[0]
+            # if filename format defined locate stack file per position
+            # otherwise iterate over all existing files (default)
+            if self.filename_fmt is not None:
+                self.files=[self.path+at+self.filename_fmt%pos]
+                self.stack=skio.imread(self.files[0])
+            
 
     def __getFrame(self,pos=0,frame=0):
 
@@ -63,7 +71,7 @@ class MMPhaseContrast():
 
             if self.pos!=pos:
                 self.pos=pos
-                self.stack=skio.imread(self.files[pos])
+                self.stack=skio.imread(self.files[0])
                 self.frame_limit=self.stack.shape[0]
                 self.result_stack=np.zeros(self.stack.shape,dtype=np.uint8)
 
@@ -112,17 +120,27 @@ class MMPhaseContrast():
                 cim.save(self.path+'/BackgroundBalanced/'+self.files[i-1].split('/')[-1])
 
         if self.is_stack:
-            tifffile.imsave(self.path+'/BackgroundBalanced/'+self.files[pos].split('/')[-1],self.result_stack)
+            tifffile.imsave(self.path+'/BackgroundBalanced/'+self.files[0].split('/')[-1],self.result_stack)
     
     # Phase Imaging Step 2: Rotate images to get trenches straight in y-axis
     #
-    def fixRotation(self,frame_start=None,frame_limit=None,pos=0):
+    def fixRotation(self,frame_start=None,frame_limit=None,pos=0):        
+
+        def __max(x):
+            if len(x)==0:
+                return 0
+            return max(x)
+        def __min(x):
+            if len(x)==0:
+                return 0
+            return min(x)
 
         # create AutoCrop folder
         if not os.path.isdir(self.path+'/RotationFixed'):
             os.system('mkdir "'+self.path+'/RotationFixed"')
 
         self.__enlistFiles(at='/BackgroundBalanced/',frame_start=frame_start,frame_limit=frame_limit,pos=pos)
+        print(self.files)
 
         for i in tqdm(range(self.frame_start,self.frame_limit),total=self.frame_limit-self.frame_start,desc='RotationFixer'):
 
@@ -137,9 +155,12 @@ class MMPhaseContrast():
                 # eliminate other (occasional) particles that may exist on the frame
                 skeleton=morphology.remove_small_objects(coarse_mask,min_size=self.imn.shape[0]*self.imn.shape[1]*0.02,connectivity=2)
 
+                #pl.imshow(skeleton)
+                #pl.savefig('skeleton.png')
+
                 # find upper and lower lines of the trenches
-                maxline=np.array(list(map(lambda x: max(np.where(x>0)[0]),skeleton.T)))
-                minline=np.array(list(map(lambda x: min(np.where(x>0)[0]),skeleton.T)))
+                maxline=np.array(list(map(lambda x: __max(np.where(x>0)[0]),skeleton.T)))
+                minline=np.array(list(map(lambda x: __min(np.where(x>0)[0]),skeleton.T)))
                 # use only local minima to account for wells btw trenches
                 peaks=argrelextrema(minline,np.less_equal,order=5)[0]
                 minlinep=minline[peaks]
@@ -175,7 +196,7 @@ class MMPhaseContrast():
                 json.dump(meta,open(self.path+'/RotationFixed/'+filename.split('.')[0]+'.meta','w'))
         
         if self.is_stack:
-            tifffile.imsave(self.path+'/RotationFixed/'+self.files[pos].split('/')[-1],self.result_stack)
+            tifffile.imsave(self.path+'/RotationFixed/'+self.files[0].split('/')[-1],self.result_stack)
 
     # Phase Imaging Step 3: Remove the stage movements using template matching
     #
@@ -309,7 +330,7 @@ class MMPhaseContrast():
                 #json.dump(meta,open(self.path+'/AutoCrop/'+filename.split('.')[0]+'.meta','w'))
 
         if self.is_stack:
-            tifffile.imsave(self.path+'/AutoCrop/'+self.files[pos].split('/')[-1],self.result_stack)
+            tifffile.imsave(self.path+'/AutoCrop/'+self.files[0].split('/')[-1],self.result_stack)
 
     @staticmethod
     def detect_peaks(x, mph=None, mpd=1, threshold=0, edge='both', kpsh=False, valley=False, show=False, ax=None):
@@ -516,7 +537,7 @@ def kernel(i):
     #MM=MMPhaseContrast(path="/media/sadik/PAULSSON_LAB_T3/2017_10_26_PlasmidLosses_Competition/Lane02/pos%02d"%i)
     #MM=MMPhaseContrast(path="/home/sadik/Desktop/SysBio/PAULSSON LAB/Luis/Ti3/180301_MMCompetitionSB5-SB8_NowWithDM25/Growth/line_01_s_%03d"%i)
     #MM=MMPhaseContrast(path="/Volumes/PAULSSON_LAB_T3/VIBRIO_SAMPLER_H2_05--37C--1_9/Lane_01_40m_CROP")
-    MM=MMPhaseContrast(path="/mnt/f/VIBRIO_SAMPLER_H2_05--37C--1_9/Lane_01_40m_CROP")
+    MM=MMPhaseContrast(path="/mnt/f/VIBRIO_SAMPLER_H2_05--37C--1_9/Lane_01_40m_CROP",filename_fmt="Lane_01_pos_%03d_40m_BF.tif")
     print('pos%03d: Initialized.'%i)
     MM.balanceBackground(pos=i)
     MM.fixRotation(pos=i)
@@ -529,19 +550,19 @@ def kernel(i):
 def main():
 
     # run for each position
-    position_start=0
-    position_end=18
+    position_start=1
+    position_end=19
     # number of parallel cores to divide the work
     n_cores=1
     
-    kernel(1)
+    #kernel(1)
     # run the multiprocess pool
-    #with Pool(n_cores) as p:
-    #
-    #
-    #    for i in tqdm(p.imap_unordered(kernel,list(range(position_start,position_end+1))),desc='Position'):
-    #        print('Position %3d OK.'%i)
-    #        pass
+    with Pool(n_cores) as p:
+    
+    
+        for i in tqdm(p.imap_unordered(kernel,list(range(position_start,position_end+1))),desc='Position'):
+            print('Position %3d OK.'%i)
+            pass
             
 
 if __name__ == "__main__":
