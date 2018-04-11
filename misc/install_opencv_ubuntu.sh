@@ -1,12 +1,19 @@
+<<<<<<< HEAD
 ######################################
 # INSTALL OPENCV ON UBUNTU OR DEBIAN #
+=======
+NSTALL OPENCV ON UBUNTU OR DEBIAN #
+>>>>>>> 4500294b87d40e22ea0d10fd3522ec8f5a046b7d
 ######################################
 
 # |         THIS SCRIPT IS TESTED CORRECTLY ON         |
 # |----------------------------------------------------|
 # | OS             | OpenCV       | Test | Last test   |
 # |----------------|--------------|------|-------------|
+<<<<<<< HEAD
 # | Ubuntu 17.04   | OpenCV 3.4.1 | OK   | 14 Mar 2018 |
+=======
+>>>>>>> 4500294b87d40e22ea0d10fd3522ec8f5a046b7d
 # | Debian 9.3     | OpenCV 3.4.0 | OK   | 17 Feb 2018 |
 # | Ubuntu 16.04.2 | OpenCV 3.2.0 | OK   | 20 May 2017 |
 # | Debian 8.8     | OpenCV 3.2.0 | OK   | 20 May 2017 |
@@ -14,7 +21,11 @@
 
 # VERSION TO BE INSTALLED
 
+<<<<<<< HEAD
 OPENCV_VERSION='3.4.1'
+=======
+OPENCV_VERSION='3.4.0'
+>>>>>>> 4500294b87d40e22ea0d10fd3522ec8f5a046b7d
 
 
 # 1. KEEP UBUNTU OR DEBIAN UP TO DATE
@@ -67,7 +78,10 @@ make -j4
 sudo make install
 sudo ldconfig
 
+<<<<<<< HEAD
 
 # 4. EXECUTE SOME OPENCV EXAMPLES AND COMPILE A DEMONSTRATION
 
 # To complete this step, please visit 'http://milq.github.io/install-opencv-ubuntu-debian'.
+=======
+>>>>>>> 4500294b87d40e22ea0d10fd3522ec8f5a046b7d
