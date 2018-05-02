@@ -153,21 +153,21 @@ class MMPhaseContrast():
 
         for i in tqdm(range(self.frame_start,self.frame_limit),total=self.frame_limit-self.frame_start,desc='RotationFixer'):
 
-            self.im=self.__getFrame(pos,i)/255.
+            self.im=self.__getFrame(pos,i)
             self.imn=self.im/np.max(np.max(self.im))
             
             if i==self.frame_start:
                 # get a coarse mask for identfying the trench location
-                im_gauss10=filters.gaussian(self.imn,5)
+                im_gauss10=ndi.filters.gaussian_filter(self.im,sigma=0.5,order=3)
                 coarse_mask=im_gauss10>threshold_otsu(im_gauss10)
                 
                 # eliminate other (occasional) particles that may exist on the frame
                 skeleton=morphology.remove_small_objects(coarse_mask,min_size=self.imn.shape[0]*self.imn.shape[1]*0.02,connectivity=2)
 
-                #pl.figure()
-                #pl.imshow(skeleton)
-                #pl.savefig('skeleton_pos%03d.png'%pos)
-                #pl.close()
+                # pl.figure()
+                # pl.imshow(skeleton)
+                # pl.savefig('skeleton_pos%03d.png'%pos)
+                # pl.close()
 
                 # find upper and lower lines of the trenches
                 maxline=np.array(list(map(lambda x: __max(np.where(x>0)[0]),skeleton.T)))
@@ -185,13 +185,13 @@ class MMPhaseContrast():
                 line_y_ransac_min = ransac.predict(line_X_min)
                 est_min=ransac.estimator_.coef_[0]
 
-                #pl.figure()
-                #pl.plot(minline)
-                #pl.plot(peaks,minline[peaks],'x')
-                #inlier_mask = ransac.inlier_mask_
-                #pl.plot(peaks[inlier_mask], minlinep[inlier_mask], marker='o')
-                #pl.savefig('trench_line%03d.png'%pos)
-                #pl.close()
+                # pl.figure()
+                # pl.plot(minline)
+                # pl.plot(peaks,minline[peaks],'x')
+                # inlier_mask = ransac.inlier_mask_
+                # pl.plot(peaks[inlier_mask], minlinep[inlier_mask], marker='o')
+                # pl.savefig('trench_line%03d.png'%pos)
+                # pl.close()
 
 
                 # make fit to the lower trench line
@@ -201,6 +201,7 @@ class MMPhaseContrast():
                 line_y_ransac_max = ransac.predict(line_X_max)
                 est_max=ransac.estimator_.coef_[0]
 
+                print(est_max,est_min)
                 # estimate the angle difference
                 est_der=(est_min)
                 est_angle=180*np.arctan(est_der)/np.pi
@@ -647,7 +648,7 @@ def kernel(i):
     #MM=MMPhaseContrast(path="/mnt/f/VIBRIO_SAMPLER_H2_05--37C--1_9/Lane_01_40m_CROP",filename_fmt="Lane_01_pos_%03d_40m_BF.tif")
     print('pos%03d: Initialized.'%i)
     #MM.balanceBackground(pos=i)
-    #MM.fixRotation(pos=i)
+    MM.fixRotation(pos=i)
     MM.matchTemplateBatch(pos=i)
     #MM.autoCrop(pos=i)
     #MM.kymograph()
@@ -662,11 +663,10 @@ def main():
     # number of parallel cores to divide the work
     n_cores=3
     
-    #kernel(1)
+    # kernel(7)
     
     # run the multiprocess pool
     with Pool(n_cores) as p:
-    
     
         for i in tqdm(p.imap_unordered(kernel,list(range(position_start,position_end+1))),desc='Position'):
             print('Position %3d OK.'%i)
