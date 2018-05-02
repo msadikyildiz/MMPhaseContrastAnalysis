@@ -568,7 +568,6 @@ class MMPhaseContrast():
         print("%d/%d frames have slicable trenches."%(len(frames_to_include),self.frame_limit-self.frame_start+1))
         print(np.where(n_trenches!=Nt)[0]+self.frame_start)
 
-        
         ### Make Trench Based Kymograph
         for tr in tqdm(range(0,Nt),total=Nt,desc='Kymographer'):
             # slice the trench, add to kymograph
@@ -628,13 +627,12 @@ def kernel(i):
     #MM=MMPhaseContrast(path="/Volumes/PAULSSON_LAB_T3/VIBRIO_SAMPLER_H2_05--37C--1_9/Lane_01_40m_CROP",filename_fmt="Lane_01_pos_%03d_40m_BF.tif")
     #MM=MMPhaseContrast(path="/mnt/f/VIBRIO_SAMPLER_H2_05--37C--1_9/Lane_01_40m_CROP",filename_fmt="Lane_01_pos_%03d_40m_BF.tif")
     print('pos%03d: Initialized.'%i)
-    MM.balanceBackground(pos=i)
-    MM.fixRotation(pos=i)
+    #MM.balanceBackground(pos=i)
+    #MM.fixRotation(pos=i)
     MM.matchTemplateBatch(pos=i)
-    MM.autoCrop(pos=i)
-    MM.kymograph()
-    MM.zstack_kymographs()
-
+    #MM.autoCrop(pos=i)
+    #MM.kymograph()
+    #MM.zstack_kymographs()
     return i
 
 def main():
