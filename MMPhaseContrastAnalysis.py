@@ -242,10 +242,14 @@ class MMPhaseContrast():
         # find x-axis lines
         self.xspread=list((map(self.N2spread,(img>threshold_otsu(img)//2).T)))
         self.xspread=np.array(self.xspread)/img.shape[1]
-        self.xspread=medfilt(self.xspread,29)
-        self.ysum=medfilt(np.sum(img,0)/img.shape[0],29)
-        right_horizon=np.max(np.where(self.xspread<0.25)[0])
-        left_horizon=np.min(np.where(self.xspread<0.25)[0])
+        self.xspread=medfilt(self.xspread,9)
+        self.ysum=medfilt(np.sum(img,0)/img.shape[0],9)
+        right_horizon=np.max(np.where(self.xspread>0.25)[0])
+        left_horizon=np.min(np.where(self.xspread>0.25)[0])
+
+        # pl.figure()
+        # pl.plot(self.xspread)
+        # pl.savefig('createtemplate_xspread_p%03d.png'%self.pos)
 
         right_est=np.where(self.xspread[left_horizon:right_horizon]>0.25)[0]
         xright=left_horizon+max(right_est)
@@ -255,22 +259,22 @@ class MMPhaseContrast():
         else:
             xleft=0
 
-        pl.figure()
-        pl.plot(self.xspread)
-        pl.plot(right_est,self.xspread[right_est],'or')
-        pl.plot(xleft,self.xspread[xleft],'gx')
-        pl.plot(xright,self.xspread[xright],'gx')
-        pl.savefig('createtemplate_xspread_p%03d.png'%self.pos)
+        # pl.plot(right_est,self.xspread[right_est],'or')
+        # pl.plot(xleft,self.xspread[xleft],'gx')
+        # pl.plot(xright,self.xspread[xright],'gx')
+        # pl.savefig('createtemplate_xspread_p%03d.png'%self.pos)
 
-        pl.figure()
-        pl.plot(self.ysum)
-        pl.plot(left_est,self.ysum[left_est],'or')
-        pl.savefig('createtemplate_ysum_p%03d.png'%self.pos)
+        # pl.figure()
+        # pl.plot(self.ysum)
+        # pl.plot(left_est,self.ysum[left_est],'or')
+        # pl.savefig('createtemplate_ysum_p%03d.png'%self.pos)
+
+        # tifffile.imsave('template_p%03d.tif'%self.pos,img[ytop:ybot,xleft:xright])
 
         return img[ytop:ybot,xleft:xright]
 
 
-    def matchTemplate(self,img,template):
+    def matchTemplate(self,img,template,frame=None):
         """
         Takes an image and a template to search for and returns bottom right
         and top left coordinates. (top_left,bottom_right) ((int,int),(int,int))
@@ -278,10 +282,18 @@ class MMPhaseContrast():
         w,h=template.shape[::-1]
 
         #methods = ['cv2.TM_CCOEFF', 'cv2.TM_CCOEFF_NORMED', 'cv2.TM_CCORR','cv2.TM_CCORR_NORMED', 'cv2.TM_SQDIFF', 'cv2.TM_SQDIFF_NORMED']
-        method=cv2.TM_CCOEFF
+        method=cv2.TM_CCORR
+
+        # use second derivative gaussian to match the template for higher robustness
+        # TODO: find a computationally cheaper method later if possible
+        proc_img=ndi.filters.gaussian_filter(img,sigma=0.5,order=3)
+        proc_template=ndi.filters.gaussian_filter(template,sigma=0.5,order=3)
+
+        #tifffile.imsave('template_img_proc_p%03d.tif'%self.pos,proc_img)
+        #tifffile.imsave('template_tmp_proc_p%03d.tif'%self.pos,proc_template)
 
         # Apply template Matching
-        self.res=cv2.matchTemplate(img,template,method)
+        self.res=cv2.matchTemplate(proc_img,proc_template,method)
         min_val, max_val, min_loc, max_loc = cv2.minMaxLoc(self.res)
 
         # If the method is TM_SQDIFF or TM_SQDIFF_NORMED, take minimum
@@ -293,6 +305,7 @@ class MMPhaseContrast():
         bottom_right=(top_left[0]+w,top_left[1]+h)
 
         return (top_left,bottom_right)
+
     @staticmethod
     def moveImage(im,move_x,move_y,pad=0):
         """
@@ -344,20 +357,20 @@ class MMPhaseContrast():
         #template=cv2.imread(self.path+'/template.tif',0)
         #self.template_g=(255*filters.gaussian(template,sigma=3)).astype('uint8')
 
-        # crop images
         for i in tqdm(range(self.frame_start,self.frame_limit),total=self.frame_limit-self.frame_start,desc='TemplateMatching'):
     
             self.im=self.__getFrame(pos=pos,frame=i)
+            # pad images for a more complete convolution
+            self.im_pad=cv2.copyMakeBorder(self.im,50,50,50,50,cv2.BORDER_CONSTANT,value=0)
 
-            #self.imc_g=(255*filters.gaussian(imc,sigma=3)).astype('uint8')
-            tl,br=self.matchTemplate(self.im,template)
+            tl,br=self.matchTemplate(self.im_pad,template,frame=i)
             
             if i==self.frame_start:
                 ref_br=br
             else:
                 move_x = ref_br[1]-br[1]
                 move_y = ref_br[0]-br[0]
-                #print(files[i-1].split('/')[-1],tl,br,move_x,move_y)
+                #print(i,tl,br,move_x,move_y)
                 self.im=self.moveImage(self.im,move_x,move_y)
 
             if self.is_stack:
@@ -622,9 +635,15 @@ def win_path(path):
     return wpath
 
 def kernel(i):
+    # Silvia's Plasmid Loss
+    #
     #MM=MMPhaseContrast(path="/media/sadik/PAULSSON_LAB_T3/2017_10_26_PlasmidLosses_Competition/Lane02/pos%02d"%i)
+    # Luis MM Competition
+    #
     #MM=MMPhaseContrast(path="/home/sadik/Desktop/SysBio/PAULSSON LAB/Luis/Ti3/180301_MMCompetitionSB5-SB8_NowWithDM25/Growth/line_01_s_%03d"%i)
-    #MM=MMPhaseContrast(path="/Volumes/PAULSSON_LAB_T3/VIBRIO_SAMPLER_H2_05--37C--1_9/Lane_01_40m_CROP",filename_fmt="Lane_01_pos_%03d_40m_BF.tif")
+    # Vibrio Sampler
+    #
+    MM=MMPhaseContrast(path="/Volumes/PAULSSON_LAB_T3/VIBRIO_SAMPLER_H2_05--37C--1_9/Lane_01_40m_CROP",filename_fmt="Lane_01_pos_%03d_40m_BF.tif")
     #MM=MMPhaseContrast(path="/mnt/f/VIBRIO_SAMPLER_H2_05--37C--1_9/Lane_01_40m_CROP",filename_fmt="Lane_01_pos_%03d_40m_BF.tif")
     print('pos%03d: Initialized.'%i)
     #MM.balanceBackground(pos=i)
@@ -641,16 +660,17 @@ def main():
     position_start=1
     position_end=19
     # number of parallel cores to divide the work
-    n_cores=1
+    n_cores=3
     
-    kernel(16)
+    #kernel(1)
+    
     # run the multiprocess pool
-    # with Pool(n_cores) as p:
+    with Pool(n_cores) as p:
     
     
-    #     for i in tqdm(p.imap_unordered(kernel,list(range(position_start,position_end+1))),desc='Position'):
-    #         print('Position %3d OK.'%i)
-    #         pass
+        for i in tqdm(p.imap_unordered(kernel,list(range(position_start,position_end+1))),desc='Position'):
+            print('Position %3d OK.'%i)
+            pass
             
 
 if __name__ == "__main__":
